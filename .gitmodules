@@ -1,0 +1,3 @@
+[submodule "convex-hull/lib/json-cgal"]
+	path = convex-hull/lib/json-cgal
+	url = https://github.com/graham-riches/json-cgal.git
