@@ -13,6 +13,7 @@ import ctypes as ct
 import time
 import numpy as np
 import sys
+import matplotlib.pyplot as plt
 
 sys.path.append('../lib/json-cgal/Scripts')
 from json_cgal import JsonCGAL, Point_2
@@ -71,7 +72,18 @@ class ConvexHull:
 
 
 if __name__ == '__main__':
-    points = create_points(10)
+    points = create_points(1000)
     hull = ConvexHull()
     vertices = hull.run(points)
-    print(vertices)
+    # plot the data
+    x_points = [point[0] for point in points]
+    y_points = [point[1] for point in points]
+    x_vertices = [vertex[0] for vertex in vertices]
+    y_vertices = [vertex[1] for vertex in vertices]
+    # re-add the first point to the end of the list to create a closed segment
+    x_vertices.append(x_vertices[0])
+    y_vertices.append(y_vertices[0])
+    fig = plt.figure()
+    plt.plot(x_points, y_points, 'ok')
+    plt.plot(x_vertices, y_vertices, '-or')
+    plt.show()
