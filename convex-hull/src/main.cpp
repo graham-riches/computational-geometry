@@ -18,8 +18,8 @@
 #include <algorithm>
 
 #include "JsonCGAL.h"
-#include "cgal_kernel_config.h"
-#include "CGAL_Types.h"
+#include "JsonCGALTypes.h"
+
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 
@@ -31,62 +31,25 @@ constexpr auto EXPECTED_ARGS = 3;
 
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ function prototypes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-void sort_points_2( CGAL_list<JsonCGAL::Point> *points );
-bool is_point_less_than_2( JsonCGAL::Point p, JsonCGAL::Point q );
-bool makes_right_turn(JsonCGAL::Point p, JsonCGAL::Point q, JsonCGAL::Point m );
-CGAL_list< JsonCGAL::Point> convex_hull(CGAL_list< JsonCGAL::Point> points );
-CONVEX_HULL_DLL_EXPORT int convex_hull(CGALTypes::Point *points, int size, CGALTypes::Point *vertices);
+void sort_points_2( CGAL_list<JsonCGAL::Point_2d> *points );
+bool is_point_less_than_2( JsonCGAL::Point_2d p, JsonCGAL::Point_2d q );
+bool makes_right_turn(JsonCGAL::Point_2d p, JsonCGAL::Point_2d q, JsonCGAL::Point_2d m );
+CGAL_list< JsonCGAL::Point_2d> run_convex_hull(CGAL_list< JsonCGAL::Point_2d> points );
+
+/* define the main extern DLL function that will be available for external use via the Json API
+   NOTE: for usage with python ctypes, this must only use C types (aka no std::string)
+*/
+CONVEX_HULL_DLL_EXPORT void convex_hull(const char *input, char *output);
 
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ function definitions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-/**
- * @brief main algorithm function
- */
-int main(int argc, char *argv[])
-{	
-	if ( argc < EXPECTED_ARGS )
-	{
-		std::cerr << "Invalid number of arguments" << std::endl;
-		std::cout << "Usage: Convex_Hull [input_data.json] [output_data.json]" << std::endl;
-		return -1;
-	}
-	/* create the file names */
-	std::string inputFile = argv[1];
-	std::string outputFile = argv[2];
-
-
-	/* create a list of points to be read in and one for the vertices of the hull */
-	CGAL_list<JsonCGAL::Point> points;
-	CGAL_list<JsonCGAL::Point> vertices;
-	
-	/* read in the data */
-	JsonCGAL::JsonCGAL json_data;
-	if (!json_data.load(inputFile))
-	{
-		std::cout << "Failed to read json file" << std::endl;
-		return -1;
-	}
-	points = json_data.get_points();
-	
-	/* run the algorithm */
-	vertices = convex_hull( points );
-
-	/* dump the output */
-	json_data.set_points(vertices);
-	json_data.dump(outputFile);
-
-	return 0;
-}
-
-
-
 /**
  * @brief sort a vector of 2D points
  * 
  * @param points, a pointer to the list of points to be sorted
  * @return 
  */
-void sort_points_2(CGAL_list< JsonCGAL::Point> *points )
+void sort_points_2(CGAL_list< JsonCGAL::Point_2d> *points )
 {
     std::sort( points->begin(), points->end(), is_point_less_than_2 );
     return;
@@ -104,7 +67,7 @@ void sort_points_2(CGAL_list< JsonCGAL::Point> *points )
  *       on the x-coordinate of the points. If x is equal, the points are sorted
  *       by y-coordinate next. This will return false if two points are identical.
  */
-bool is_point_less_than_2( JsonCGAL::Point p, JsonCGAL::Point q )
+bool is_point_less_than_2( JsonCGAL::Point_2d p, JsonCGAL::Point_2d q )
 {
     return ( p.x() == q.x() ) ? ( p.y() < q.y() ) : ( p.x() < q.x() );
 }
@@ -119,7 +82,7 @@ bool is_point_less_than_2( JsonCGAL::Point p, JsonCGAL::Point q )
  * @return true if the points make a right turn
  * @return false is the points make a left turn or are collinear
  */
-bool makes_right_turn(JsonCGAL::Point p, JsonCGAL::Point q, JsonCGAL::Point m )
+bool makes_right_turn(JsonCGAL::Point_2d p, JsonCGAL::Point_2d q, JsonCGAL::Point_2d m )
 {
     switch ( CGAL::orientation(p, q, m) )
     {
@@ -140,10 +103,10 @@ bool makes_right_turn(JsonCGAL::Point p, JsonCGAL::Point q, JsonCGAL::Point m )
  * @param points, the input list of points
  * @return PointsList_t a list of vertices of the bounding polygon
  */
-CGAL_list<JsonCGAL::Point> convex_hull( CGAL_list<JsonCGAL::Point> points )
+CGAL_list<JsonCGAL::Point_2d> run_convex_hull( CGAL_list<JsonCGAL::Point_2d> points )
 {
-	CGAL_list<JsonCGAL::Point> upper_hull;
-	CGAL_list<JsonCGAL::Point> lower_hull;
+	CGAL_list<JsonCGAL::Point_2d> upper_hull;
+	CGAL_list<JsonCGAL::Point_2d> lower_hull;
 	/* try reserving memory based on the length of the input points as we can't have more hull points than input points 
 	   this trades memory for speed. No notable performance gains found.
 	*/
@@ -206,7 +169,7 @@ CGAL_list<JsonCGAL::Point> convex_hull( CGAL_list<JsonCGAL::Point> points )
     lower_hull.pop_back();
     lower_hull.erase( lower_hull.begin() );
 
-    for ( CGAL_list<JsonCGAL::Point>::iterator p = lower_hull.begin(); p < lower_hull.end(); p ++ )
+    for ( CGAL_list<JsonCGAL::Point_2d>::iterator p = lower_hull.begin(); p < lower_hull.end(); p ++ )
     {
         upper_hull.push_back( *p );
     }
@@ -214,23 +177,24 @@ CGAL_list<JsonCGAL::Point> convex_hull( CGAL_list<JsonCGAL::Point> points )
 }
 
 
-
-CONVEX_HULL_DLL_EXPORT int convex_hull(CGALTypes::Point *points, int size, CGALTypes::Point *vertices)
+/**
+ * @brief compute the convex hull of a set of 2D points. Exposed function via DLL export
+ *
+ * @param input, a pointer to a string buffer of data encoded as JsonCGAL
+ * @param output, a pointer to a string buffer of vertex data encoded as JsonCGAL
+ */
+CONVEX_HULL_DLL_EXPORT void convex_hull(const char *input, char *output)
 {
-	if ((points == NULL) || (vertices == NULL))
-	{
-		return 0;
-	}
-	JsonCGAL::JsonCGAL json_data;
-	json_data.set_points(points, size);
-	CGAL_list<JsonCGAL::Point> points_v = json_data.get_points();
-	CGAL_list<JsonCGAL::Point> vertices_v = convex_hull(points_v);
-
-	for (int i = 0; i < vertices_v.size(); i++)
-	{
-		vertices->x = vertices_v[i].x();
-		vertices->y = vertices_v[i].y();
-		vertices++;
-	}
-	return static_cast<int>(vertices_v.size());
+   if ((input == NULL) || (output == NULL))
+   {
+      return;
+   }
+   JsonCGAL::JsonCGAL data;
+   JsonCGAL::JsonCGAL output_data;
+   data.load_from_string(input);
+   CGAL_list<JsonCGAL::Point_2d> input_points = data.get_objects<JsonCGAL::Point_2d>(JsonCGAL::Point_2d());
+   CGAL_list<JsonCGAL::Point_2d> vertices = run_convex_hull(input_points);
+   output_data.add_objects(vertices);
+   std::string output_str = output_data.dump_to_string();
+   memcpy(output, output_str.c_str(), output_str.size());
 }

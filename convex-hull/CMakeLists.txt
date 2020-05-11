@@ -4,7 +4,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "/MTd /Zi /Ob0 /Od /RTC1")
 
 project(convex_hull)
 
-include_directories(src lib/json-cgal)
+include_directories(src lib/json-cgal/src)
 
 
 add_subdirectory(src)

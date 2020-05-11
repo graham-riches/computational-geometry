@@ -11,4 +11,4 @@ set(SOURCES ${SOURCES})
 add_library(${BINARY} SHARED ${SOURCES})
 
 target_link_libraries(${BINARY} CGAL::CGAL)
-target_link_libraries(${BINARY} JsonCGAL)
+target_link_libraries(${BINARY} JsonCGAL_lib)

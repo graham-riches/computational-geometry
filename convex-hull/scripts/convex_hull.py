@@ -12,10 +12,10 @@
 import ctypes as ct
 import time
 import numpy as np
+import sys
 
-
-class Point(ct.Structure):
-    _fields_ = [('x', ct.c_double), ('y', ct.c_double)]
+sys.path.append('../lib/json-cgal/Scripts')
+from json_cgal import JsonCGAL, Point_2
 
 
 def time_method(method):
@@ -44,44 +44,34 @@ def create_points(n: int):
     return points
 
 
-@time_method
-def create_struct_array(points: np.ndarray):
-    x = points[:, 0]
-    y = points[:, 1]
-    elems = (Point*len(x))()
-    struct_arr = ct.cast(elems, ct.POINTER(Point))
-    for i in range(len(x)):
-        struct_arr[i].x = x[i]
-        struct_arr[i].y = y[i]
-    return struct_arr
-
-
 class ConvexHull:
     def __init__(self):
         dll = ct.cdll.LoadLibrary('../build/src/Release/convex_hull.dll')
 
-        self._hull_from_points = wrap_function(dll, 'convex_hull',
-                                               ct.c_int, [ct.POINTER(Point),
-                                                          ct.c_int,
-                                                          ct.POINTER(Point)])
+        self._run = wrap_function(dll, 'convex_hull',
+                                  None, [ct.c_char_p,
+                                         ct.c_char_p])
 
     @time_method
-    def run_from_points(self, points: np.ndarray):
-        struct_array = create_struct_array(points)
-        elems = (Point*len(points))()
-        vertices = ct.cast(elems, ct.POINTER(Point))
-        size = self._hull_from_points(struct_array,
-                                      ct.c_int(len(points)),
-                                      vertices)
-        vertex_points = []
-        for i in range(size):
-            vertex_points.append([vertices[i].x, vertices[i].y])
-        return vertex_points
+    def run(self, points: np.ndarray):
+        data = JsonCGAL()
+        data.points = [Point_2(point[0], point[1]) for point in points]
+        string_data = data.encode()
+        input_buffer = ct.create_string_buffer(string_data.encode('utf-8'))
+        output_buffer = ct.create_string_buffer(''.encode(),
+                                                size=len(input_buffer))
+        self._run(input_buffer, output_buffer)
+        output_data = JsonCGAL()
+        output_data.decode(output_buffer.value.decode('utf-8'))
+        vertices = output_data.points
+        output_points = np.ndarray((len(vertices), 2))
+        for i in range(len(vertices)):
+            output_points[i] = [vertices[i].x, vertices[i].y]
+        return output_points
 
 
 if __name__ == '__main__':
-    points = create_points(1000000)
-    # run the CGAL method with the ctypes bindings
+    points = create_points(10)
     hull = ConvexHull()
-    vertices = hull.run_from_points(points)
+    vertices = hull.run(points)
     print(vertices)
