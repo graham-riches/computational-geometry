@@ -10,49 +10,45 @@
  */
 
 
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ includes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Includes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 #include <iostream>
 #include <fstream>
 #include <vector>
 #include <string>
 #include <algorithm>
-
-#include "JsonCGAL.h"
-#include "JsonCGALTypes.h"
-
-
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ setup dll export ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-#define CONVEX_HULL_DLL_EXPORT extern "C" __declspec(dllexport)
-
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ constants ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-constexpr auto EXPECTED_ARGS = 3;
+#include <random>
+#include <CGAL/Point_2.h>
+#include <CGAL/Simple_cartesian.h>
 
 
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ function prototypes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-void sort_points_2( CGAL_list<JsonCGAL::Point_2d> *points );
-bool is_point_less_than_2( JsonCGAL::Point_2d p, JsonCGAL::Point_2d q );
-bool makes_right_turn(JsonCGAL::Point_2d p, JsonCGAL::Point_2d q, JsonCGAL::Point_2d m );
-CGAL_list< JsonCGAL::Point_2d> run_convex_hull(CGAL_list< JsonCGAL::Point_2d> points );
 
-/* define the main extern DLL function that will be available for external use via the Json API
-   NOTE: for usage with python ctypes, this must only use C types (aka no std::string)
-*/
-CONVEX_HULL_DLL_EXPORT void convex_hull(const char *input, char *output);
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Types ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+typedef CGAL::Simple_cartesian<double> Kernel; /* setup the CGAL kernel*/
+typedef CGAL::Point_2<Kernel> Point_2; /* convenience 2D point setup */
 
 
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ function definitions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Constants ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Function Prototypes ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+void sort_points_2( std::vector<Point_2> *points );
+bool is_point_less_than_2( Point_2 p, Point_2 q );
+bool makes_right_turn( Point_2 p, Point_2 q, Point_2 m );
+std::vector<Point_2> create_points( int size, double lower_limit, double upper_limit );
+std::vector<Point_2> convex_hull( std::vector<Point_2> points );
+
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Function Definitions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 /**
  * @brief sort a vector of 2D points
  * 
  * @param points, a pointer to the list of points to be sorted
  * @return 
  */
-void sort_points_2(CGAL_list< JsonCGAL::Point_2d> *points )
+void sort_points_2( std::vector<Point_2> *points )
 {
-    std::sort( points->begin(), points->end(), is_point_less_than_2 );
-    return;
+   std::sort( points->begin(), points->end(), is_point_less_than_2 );
+   return;
 }
 
 
@@ -67,134 +63,144 @@ void sort_points_2(CGAL_list< JsonCGAL::Point_2d> *points )
  *       on the x-coordinate of the points. If x is equal, the points are sorted
  *       by y-coordinate next. This will return false if two points are identical.
  */
-bool is_point_less_than_2( JsonCGAL::Point_2d p, JsonCGAL::Point_2d q )
+bool is_point_less_than_2( Point_2 p, Point_2 q )
 {
-    return ( p.x() == q.x() ) ? ( p.y() < q.y() ) : ( p.x() < q.x() );
+   return ( p.x() == q.x() ) ? ( p.y() < q.y() ) : ( p.x() < q.x() );
 }
 
 
 /**
  * @brief checks if three points make a right turn
  * 
- * @param p 
- * @param q 
- * @param m 
+ * @param p first point
+ * @param q second point
+ * @param m third point
  * @return true if the points make a right turn
  * @return false is the points make a left turn or are collinear
  */
-bool makes_right_turn(JsonCGAL::Point_2d p, JsonCGAL::Point_2d q, JsonCGAL::Point_2d m )
+bool makes_right_turn( Point_2 p, Point_2 q, Point_2 m )
 {
-    switch ( CGAL::orientation(p, q, m) )
-    {
-		case CGAL::RIGHT_TURN:
-			return true;
+   switch ( CGAL::orientation(p, q, m) )
+   {
+	case CGAL::RIGHT_TURN:
+		return true;
 		
-		case CGAL::COLLINEAR:	
-        case CGAL::LEFT_TURN:
-        default:
-            return false;
-    }
+   /* intentional fallthrough */
+	case CGAL::COLLINEAR:	
+   case CGAL::LEFT_TURN:
+   default:
+      return false;
+   }
 }
 
+
+/**
+ * @brief create a pseudo random list of points to seed the algorithm with
+ * @param size number of points
+ * @param lower_limit lower bound of the random range
+ * @param upper_limit upper bound of the random range
+ * @return vector of points
+*/
+std::vector<Point_2> create_points( int size, double lower_limit, double upper_limit )
+{
+   std::vector<Point_2> points;
+   std::random_device random;
+   std::uniform_real_distribution<double> random_range( lower_limit, upper_limit );
+
+   for ( int i = 0; i < size; i++ )
+   {      
+      points.push_back( Point_2{ random_range( random ), random_range( random ) } );
+   }
+   return points;
+}
 
 /**
  * @brief compute the convex hull of a set of 2D points
  * 
  * @param points, the input list of points
- * @return PointsList_t a list of vertices of the bounding polygon
+ * @return vector of vertices of the bounding polygon
  */
-CGAL_list<JsonCGAL::Point_2d> run_convex_hull( CGAL_list<JsonCGAL::Point_2d> points )
+std::vector<Point_2> convex_hull( std::vector<Point_2> points )
 {
-	CGAL_list<JsonCGAL::Point_2d> upper_hull;
-	CGAL_list<JsonCGAL::Point_2d> lower_hull;
-	/* try reserving memory based on the length of the input points as we can't have more hull points than input points 
-	   this trades memory for speed. No notable performance gains found.
-	*/
-	upper_hull.reserve(points.size());
-	lower_hull.reserve(points.size());
+   std::vector<Point_2> upper_hull;
+   std::vector<Point_2> lower_hull;
 
-	int j;
+   /* start by sorting the list of points lexicographically */
+   sort_points_2( &points );
 
-    /* start by sorting the list of points lexicographically */
-    sort_points_2( &points );
+   /* append the first two points of the sorted list to the upper hull list */
+   upper_hull.push_back( points[0] );
+   upper_hull.push_back( points[1] );
 
-    /* append the first two points of the sorted list to the upper hull list */
-    upper_hull.push_back( points[0] );
-    upper_hull.push_back( points[1] );
+   /* start the upper hull loop at the third index */
+   for ( int i = 2; i < points.size(); i++ )
+   {
+      /* add the newest point to the hull */
+      upper_hull.push_back( points[i] );
 
-    /* start the upper hull loop at the third index */
-    for ( int i = 2; i < points.size(); i++ )
-    {
-        /* add the newest point to the hull */
-        upper_hull.push_back( points[i] );
+      /* remove points if they are not valid */
+      while ( upper_hull.size() > 2 )
+      {
+		   if ( makes_right_turn( upper_hull[upper_hull.size() - 3], upper_hull[upper_hull.size() - 2], upper_hull[upper_hull.size() - 1]) )
+         {
+             break;
+         }
+         else
+		   {
+			   upper_hull.erase(upper_hull.begin() + upper_hull.size() - 2);
+		   }            
+      }
+   }
 
-        /* remove points if they are not valid */
-        while ( upper_hull.size() > 2 )
-        {
-			j = upper_hull.size();
-			if ( makes_right_turn(upper_hull[j - 3], upper_hull[j - 2], upper_hull[j - 1]) )
-            {
-                break;
-            }
-            else
-			{
-				upper_hull.erase(upper_hull.begin() + j - 2);
-			}            
-        }
-    }
+   /* now do the lower hull half of the algorithm */
+   lower_hull.push_back( points[points.size() - 1 ] );
+   lower_hull.push_back( points[points.size() - 2 ] );
 
-    /* now do the lower hull half of the algorithm */
-    lower_hull.push_back( points[points.size() - 1 ] );
-    lower_hull.push_back( points[points.size() - 2 ] );
-    for ( int i = points.size()-3; i >= 0; i-- )
-    {
-        /* add the points from the tail end */
-        lower_hull.push_back( points[i] );
+   for ( int i = points.size() - 3; i >= 0; i-- )
+   {
+      /* add the points from the tail end */
+      lower_hull.push_back( points[i] );
         
-        while ( lower_hull.size() > 2 )
-        {
-            j = lower_hull.size();
-            if ( makes_right_turn(lower_hull[j-3], lower_hull[j-2], lower_hull[j-1] ) )
-            {
-                break;
-            }
-            else
-            {
-                lower_hull.erase(lower_hull.end() - 2 );
-            }
-        }
-    }    
+      while ( lower_hull.size() > 2 )
+      {         
+         if ( makes_right_turn(lower_hull[lower_hull.size( ) - 3], lower_hull[lower_hull.size( ) - 2], lower_hull[lower_hull.size( ) - 1] ) )
+         {
+             break;
+         }
+         else
+         {
+            lower_hull.erase(lower_hull.end() - 2 );
+         }
+      }
+   }    
 
-    /* remove the first and last point in lower_hull (already in upper_hull) and append the two lists */
-    lower_hull.pop_back();
-    lower_hull.erase( lower_hull.begin() );
+   /* remove the first and last point in lower_hull (already in upper_hull) and append the two lists */
+   lower_hull.pop_back();
+   lower_hull.erase( lower_hull.begin() );
 
-    for ( CGAL_list<JsonCGAL::Point_2d>::iterator p = lower_hull.begin(); p < lower_hull.end(); p ++ )
-    {
-        upper_hull.push_back( *p );
-    }
-    return upper_hull;
+   for ( std::vector<Point_2>::iterator p = lower_hull.begin(); p < lower_hull.end(); p ++ )
+   {
+      upper_hull.push_back( *p );
+   }
+   return upper_hull;
 }
 
 
 /**
- * @brief compute the convex hull of a set of 2D points. Exposed function via DLL export
- *
- * @param input, a pointer to a string buffer of data encoded as JsonCGAL
- * @param output, a pointer to a string buffer of vertex data encoded as JsonCGAL
- */
-CONVEX_HULL_DLL_EXPORT void convex_hull(const char *input, char *output)
+ * @brief main algorithm function
+ * @param argc number of command line arguments
+ * @param argv array of arguments
+ * @return None
+*/
+void main( int argc, char *argv[] )
 {
-   if ((input == NULL) || (output == NULL))
+   /* seed a vector of random points */
+   auto points = create_points( 100, -5, 5 );
+   
+   auto hull_points = convex_hull( points );
+
+   for ( auto &point : hull_points )
    {
-      return;
+      std::cout << "Hull point: " << point.x( ) << "," << point.y( ) << std::endl;
    }
-   JsonCGAL::JsonCGAL data;
-   JsonCGAL::JsonCGAL output_data;
-   data.load_from_string(input);
-   CGAL_list<JsonCGAL::Point_2d> input_points = data.get_objects<JsonCGAL::Point_2d>(JsonCGAL::Point_2d());
-   CGAL_list<JsonCGAL::Point_2d> vertices = run_convex_hull(input_points);
-   output_data.add_objects(vertices);
-   std::string output_str = output_data.dump_to_string();
-   memcpy(output, output_str.c_str(), output_str.size());
 }

@@ -8,7 +8,6 @@ file(GLOB_RECURSE SOURCES LIST_DIRECTORIES true *.h *.cpp)
 
 set(SOURCES ${SOURCES})
 
-add_library(${BINARY} SHARED ${SOURCES})
+add_executable(${BINARY} ${SOURCES})
 
 target_link_libraries(${BINARY} CGAL::CGAL)
-target_link_libraries(${BINARY} JsonCGAL_lib)

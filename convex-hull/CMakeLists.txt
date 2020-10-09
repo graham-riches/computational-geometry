@@ -6,6 +6,4 @@ project(convex_hull)
 
 include_directories(src lib/json-cgal/src)
 
-
 add_subdirectory(src)
-add_subdirectory(lib/json-cgal)
