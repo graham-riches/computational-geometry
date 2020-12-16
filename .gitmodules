@@ -1,3 +1,6 @@
 [submodule "convex-hull/lib/json-cgal"]
 	path = convex-hull/lib/json-cgal
 	url = https://github.com/graham-riches/json-cgal.git
+[submodule "segment-intersections/lib/googletest"]
+	path = segment-intersections/lib/googletest
+	url = https://github.com/google/googletest.git

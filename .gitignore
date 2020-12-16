@@ -350,5 +350,6 @@ MigrationBackup/
 .ionide/
 
 # module build files
-convex-hull/build/
+build/
 **/.vscode*
+

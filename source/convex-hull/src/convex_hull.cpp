@@ -102,15 +102,19 @@ bool makes_right_turn( Point_2 p, Point_2 q, Point_2 m )
  * @return vector of points
 */
 std::vector<Point_2> create_points( int size, double lower_limit, double upper_limit )
-{
-   std::vector<Point_2> points;
-   std::random_device random;
-   std::uniform_real_distribution<double> random_range( lower_limit, upper_limit );
-
-   for ( int i = 0; i < size; i++ )
-   {      
-      points.push_back( Point_2{ random_range( random ), random_range( random ) } );
-   }
+{      
+   auto random_point = [](double lower, double upper)
+   {
+      auto random_function = [distribution = std::uniform_real_distribution<double>(lower, upper),
+         random_engine = std::mt19937{std::random_device{}()}] () mutable
+      {
+         return Point_2{distribution(random_engine), distribution(random_engine)};
+      };
+      return random_function;
+   };
+   
+   std::vector<Point_2> points(size);
+   std::generate(points.begin(), points.end(), random_point(lower_limit, upper_limit) );
    return points;
 }
 

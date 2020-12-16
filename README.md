@@ -16,6 +16,6 @@ Here are a few things this project does:
 > - performance is substantially higher than a native Python implementation due to the speed of C++. It even comes fairly close to matching the performance of the highly optimized Scipy implementation
 
 
-![convex_hull](convex-hull/docs/imgs/convex_hull.png)
+![convex_hull](docs/imgs/convex_hull.png)
 
 
